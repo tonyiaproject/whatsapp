@@ -1,12 +1,11 @@
+const fs = require('fs');
+const path = require('path');
 const express = require('express');
 const axios = require('axios');
 const Anthropic = require('@anthropic-ai/sdk');
 
 const PORT = process.env.PORT || 3001;
-const MODEL = process.env.CLAUDE_MODEL || 'claude-haiku-4-5-20251001';
-const MAX_TOKENS = parseInt(process.env.CLAUDE_MAX_TOKENS || '120', 10);
-const SYSTEM_PROMPT = process.env.SYSTEM_PROMPT || 'Eres un asistente de atención al cliente. Responde de forma breve y amable.';
-const WELCOME_MESSAGE = process.env.WELCOME_MESSAGE || 'Hola 👋 soy TonyIA, el asistente de inteligencia artificial de Tony López.';
+const AGENTS_FILE = process.env.AGENTS_FILE || path.join(__dirname, 'agents.json');
 const MAX_HISTORY_MESSAGES = 20;
 
 // Random reply delay so response timing doesn't look mechanically constant.
@@ -23,8 +22,33 @@ const EVOLUTION_API_KEY = process.env.EVOLUTION_API_KEY;
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
-// In-memory conversation history per WhatsApp contact (remoteJid). Resets on restart.
+const FALLBACK_AGENT = {
+  model: 'claude-haiku-4-5-20251001',
+  maxTokens: 120,
+  systemPrompt: 'Eres un asistente de atención al cliente. Responde de forma breve y amable.',
+  welcomeMessage: 'Hola 👋 este número aún no tiene su asistente configurado.',
+  handoffMessage: 'Claro, en un momento te contacta alguien del equipo 🙌',
+};
+
+// Reads agents.json fresh on every call -- editing the file takes effect on the
+// very next message, no restart needed. A JSON typo falls back to a safe default
+// instead of crashing the whole bridge for every instance.
+function loadAgentConfig(instanceName) {
+  let all;
+  try {
+    all = JSON.parse(fs.readFileSync(AGENTS_FILE, 'utf-8'));
+  } catch (err) {
+    console.error(`Failed to read/parse ${AGENTS_FILE}:`, err.message);
+    return FALLBACK_AGENT;
+  }
+  return all[instanceName] || all._default || FALLBACK_AGENT;
+}
+
+// In-memory conversation history, keyed per instance + contact. Resets on restart.
 const conversations = new Map();
+function conversationKey(instanceName, user) {
+  return `${instanceName || 'unknown'}:${user}`;
+}
 
 // Phrases that hand the conversation off to a human. Matched as substrings, accent/case-insensitive.
 const HANDOFF_TRIGGERS = [
@@ -36,7 +60,6 @@ const HANDOFF_TRIGGERS = [
   'pasame con una persona',
   'quiero hablar con alguien real',
 ];
-const HANDOFF_MESSAGE = process.env.HANDOFF_MESSAGE || 'Claro, ahora te contacta Tony directamente 🙌';
 
 function normalize(text) {
   return text
@@ -74,24 +97,28 @@ app.post('/webhook', async (req, res) => {
     return res.json({ message: null });
   }
 
+  const instanceName = inputs?.instanceName;
+  const agent = loadAgentConfig(instanceName);
+  const key = conversationKey(instanceName, user);
+
   let reply;
 
   if (isHandoffRequest(query)) {
-    conversations.delete(user);
-    await closeBotSession(inputs?.instanceName, inputs?.remoteJid || user);
-    reply = HANDOFF_MESSAGE;
-  } else if (!conversations.has(user)) {
-    conversations.set(user, []);
-    reply = WELCOME_MESSAGE;
+    conversations.delete(key);
+    await closeBotSession(instanceName, inputs?.remoteJid || user);
+    reply = agent.handoffMessage;
+  } else if (!conversations.has(key)) {
+    conversations.set(key, []);
+    reply = agent.welcomeMessage;
   } else {
-    const history = conversations.get(user);
+    const history = conversations.get(key);
     history.push({ role: 'user', content: query });
 
     try {
       const response = await anthropic.messages.create({
-        model: MODEL,
-        max_tokens: MAX_TOKENS,
-        system: SYSTEM_PROMPT,
+        model: agent.model,
+        max_tokens: agent.maxTokens,
+        system: agent.systemPrompt,
         messages: history,
       });
 
@@ -102,7 +129,7 @@ app.post('/webhook', async (req, res) => {
         .trim();
 
       history.push({ role: 'assistant', content: reply });
-      conversations.set(user, history.slice(-MAX_HISTORY_MESSAGES));
+      conversations.set(key, history.slice(-MAX_HISTORY_MESSAGES));
     } catch (err) {
       console.error('Anthropic error:', err.message);
       reply = 'Disculpa, tuve un problema. Intenta de nuevo.';
@@ -115,4 +142,4 @@ app.post('/webhook', async (req, res) => {
 
 app.get('/health', (_req, res) => res.send('ok'));
 
-app.listen(PORT, () => console.log(`claude-bridge listening on ${PORT}, model=${MODEL}`));
+app.listen(PORT, () => console.log(`claude-bridge listening on ${PORT}, agents file=${AGENTS_FILE}`));

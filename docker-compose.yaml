@@ -43,6 +43,8 @@ services:
     restart: always
     env_file:
       - ./claude-bridge/.env
+    volumes:
+      - ./claude-bridge/agents.json:/app/agents.json
     networks:
       - evolution-net
     expose:

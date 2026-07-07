@@ -8,18 +8,52 @@ de vuelta).
 ## Componentes
 
 - `claude-bridge/server.js` — servidor Express que recibe el webhook, llama a la API de Anthropic
-  (modelo `claude-haiku-4-5-20251001`) y responde.
-- `claude-bridge/.env` — credenciales y configuración (no se sube a git, cubierto por `*.env` en `.gitignore`).
+  y responde.
+- `claude-bridge/agents.json` — **un prompt/personalidad distinto por cada instancia de WhatsApp**
+  (ver sección siguiente). Esto es lo que hay que editar cuando se agrega un número nuevo.
+- `claude-bridge/.env` — configuración global del bridge, compartida por todas las instancias
+  (credenciales, no se sube a git, cubierto por `*.env` en `.gitignore`).
 - Servicio `claude-bridge` en `docker-compose.yaml`, en la misma red (`evolution-net`) que la API.
-- Bot `EvolutionBot` creado vía API en la instancia `Tony`, apuntando a `http://claude-bridge:3001/webhook`.
+- Un bot `EvolutionBot` por instancia, creado vía API, todos apuntando al mismo
+  `http://claude-bridge:3001/webhook` — el bridge distingue de qué número viene cada mensaje por
+  el campo `inputs.instanceName` que manda Evolution en cada llamada.
+
+## Agregar un nuevo agente (número nuevo) — sin tocar código
+
+Cuando se crea una nueva instancia/número en el Manager (Humania), el bridge **no la conoce
+automáticamente** — hay que agregarle su propia entrada en `claude-bridge/agents.json`:
+
+```json
+"NombreExactoDeLaInstancia": {
+  "model": "claude-haiku-4-5-20251001",
+  "maxTokens": 120,
+  "systemPrompt": "Aquí va la personalidad y reglas del nuevo agente...",
+  "welcomeMessage": "Saludo fijo para el primer contacto...",
+  "handoffMessage": "Mensaje al detectar traspaso a humano..."
+}
+```
+
+- El nombre de la clave (`"NombreExactoDeLaInstancia"`) debe coincidir **exacto** (mayúsculas
+  incluidas) con el nombre de la instancia en Evolution API.
+- **No hace falta reiniciar nada** — el archivo se relee en cada mensaje entrante, así que el
+  cambio aplica desde el siguiente mensaje que llegue.
+- Si una instancia no tiene entrada propia, usa automáticamente la entrada `"_default"` (un mensaje
+  genérico avisando que falta configurar el agente) en vez de fallar o usar el prompt de otro
+  cliente por error.
+- También hace falta crear el `EvolutionBot` de esa instancia vía API (mismo proceso que se hizo
+  para "Tony" — ver historial de este documento), apuntando al mismo
+  `http://claude-bridge:3001/webhook`.
+
+Sigue siendo edición manual de un archivo (no una pantalla con botones) — pero ya no requiere tocar
+`server.js` ni pedir ayuda para agregar un cliente nuevo.
 
 ## Comportamiento del bridge
 
-1. **Primer mensaje de un contacto nuevo**: responde con un saludo fijo (`WELCOME_MESSAGE` en `.env`),
-   sin llamar a Claude — determinista y gratis.
-2. **Mensajes siguientes**: se le pasan a Claude Haiku con el `SYSTEM_PROMPT` configurado (personalidad
-   "TonyIA"), manteniendo un historial en memoria por contacto (máx. 20 mensajes, se resetea si el
-   contenedor se reinicia — no hay persistencia en base de datos todavía).
+1. **Primer mensaje de un contacto nuevo**: responde con el saludo fijo (`welcomeMessage` del agente
+   correspondiente en `agents.json`), sin llamar a Claude — determinista y gratis.
+2. **Mensajes siguientes**: se le pasan a Claude con el `systemPrompt`/`model`/`maxTokens` del agente
+   de esa instancia, manteniendo un historial en memoria por instancia+contacto (máx. 20 mensajes,
+   se resetea si el contenedor se reinicia — no hay persistencia en base de datos todavía).
 3. **Frases de traspaso a humano** (ej. "hablar con Tony", "hablar con un humano"): el bridge detecta
    estas frases (coincidencia de texto, sin acentos, insensible a mayúsculas), responde un mensaje corto
    y llama de vuelta a la API de Evolution (`POST /evolutionBot/changeStatus/:instance`) para cerrar el
@@ -33,19 +67,17 @@ de vuelta).
    respondería en cualquier grupo donde esté agregado el número, algo no deseado en pruebas ni en
    producción.
 
-## Variables de entorno (`claude-bridge/.env`)
+## Variables de entorno (`claude-bridge/.env`) — configuración global, no por agente
 
 | Variable | Uso |
 |---|---|
 | `ANTHROPIC_API_KEY` | API key de Anthropic |
-| `CLAUDE_MODEL` | `claude-haiku-4-5-20251001` |
-| `CLAUDE_MAX_TOKENS` | Tope de tokens de salida por respuesta (actualmente `120`, para forzar respuestas cortas) |
-| `SYSTEM_PROMPT` | Personalidad/reglas de TonyIA |
-| `WELCOME_MESSAGE` | Saludo fijo para el primer contacto |
-| `HANDOFF_MESSAGE` | Mensaje al detectar traspaso a humano |
 | `EVOLUTION_API_URL` | URL interna de la API dentro de la red Docker (`http://api:8080`) |
 | `EVOLUTION_API_KEY` | API key global de Evolution, usada para cerrar sesiones de bot vía `changeStatus` |
 | `MIN_REPLY_DELAY_MS` / `MAX_REPLY_DELAY_MS` | Rango (ms) de espera aleatoria antes de responder cada mensaje (por defecto 2000-8000) |
+
+`model`, `maxTokens`, `systemPrompt`, `welcomeMessage` y `handoffMessage` **ya no van en `.env`** —
+viven por instancia en `claude-bridge/agents.json` (ver sección de arriba).
 
 ## Costos (Claude Haiku 4.5)
 
