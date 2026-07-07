@@ -71,18 +71,58 @@ conversaciones no solicitadas, actividad 24/7 sin variación, o tasa alta de blo
 
 ## Escalar a producción — límites y consideraciones
 
-Evolution API es open source (Apache 2.0) — no impone límite de instancias/números. Los límites
-reales:
+Evolution API es open source (Apache 2.0) — no impone límite de instancias/números. Un solo
+contenedor de la API (proceso Node.js, sin clustering) puede manejar muchas instancias/números a la
+vez — no es "un contenedor por número", cada instancia es solo una conexión WebSocket + estado en
+memoria dentro del mismo proceso.
 
-- **Recursos del servidor**: cada instancia Baileys mantiene una conexión WebSocket + estado en
-  memoria. Un VPS modesto aguanta cómodamente 10-30 instancias; más que eso requiere más RAM/CPU o
-  escalar horizontalmente (Evolution soporta Redis compartido/RabbitMQ para esto).
-- **Base de datos**: Postgres crece con el historial de mensajes/contactos/chats.
-- **Riesgo de baneo por WhatsApp**: inherente a cualquier número en modo no oficial
-  (`WHATSAPP-BAILEYS`), independiente de cuántos números se tengan.
+Con el hardware de referencia usado en pruebas (12 CPUs, ~7.6 GB RAM asignados a Docker Desktop; 1
+instancia activa consumía ~157 MB en el contenedor de la API):
+
+- **RAM** es normalmente el cuello de botella, no CPU: con ~50-100 MB por instancia bajo actividad
+  moderada, ese hardware soporta cómodamente **~30-60 números** con margen de operación, y
+  técnicamente hasta ~60-90 antes de agotar RAM — pero probarlo con tráfico real antes de prometerle
+  esa capacidad a clientes.
+- **CPU**: al ser un solo proceso Node sin clustering, el límite real aparece con volumen de
+  mensajes *simultáneos*, no con números inactivos.
+- **Base de datos**: Postgres ya está configurado para hasta 1000 conexiones — no es el cuello de
+  botella típico a esta escala.
+- **Para escalar más allá de un servidor**: Evolution soporta correr varias réplicas de la API
+  compartiendo el mismo Redis/Postgres (el `docker-compose.yaml` ya tiene alias de red pensados para
+  esto).
+- **No correr esto en una computadora personal para producción real** — para comercializarlo se
+  necesita un servidor (VPS/cloud) dedicado, dimensionado según el número de clientes/números
+  activos.
 - **Alternativa oficial para escala real**: migrar números críticos a `WHATSAPP-BUSINESS` (Meta
   Cloud API oficial, también soportada por Evolution) — elimina el riesgo de baneo por
   automatización, a cambio del costo por conversación que cobra Meta.
+
+### Riesgo de baneo — caso de uso solo-entrada (sin mensajes salientes)
+
+Este servicio está pensado únicamente para **responder mensajes entrantes** (nadie recibe mensajes
+no solicitados de parte del bot; solo contesta a quien escribe primero). Esto reduce
+significativamente el riesgo de baneo, porque elimina el factor de riesgo más común y mejor
+documentado en la comunidad de Baileys: el envío masivo de mensajes no solicitados (spam saliente,
+campañas a números que nunca escribieron primero).
+
+Sin embargo, el riesgo **no es cero**:
+
+- Sigue siendo un cliente no oficial (Baileys reconstruye el protocolo de WhatsApp Web por
+  ingeniería inversa) — los términos de servicio de WhatsApp prohíben clientes no autorizados
+  independientemente de si el número envía o solo responde.
+- El propio patrón de respuesta puede delatar automatización: contestar siempre en 1-2 segundos,
+  las 24 horas, sin ninguna variación, es un patrón detectable como no-humano — más visible cuantos
+  más números se comporten igual.
+
+Mitigaciones ya aplicadas en este proyecto:
+
+- `delayMessage` / `debounceTime` en la configuración del bot agregan una pequeña demora antes de
+  responder en vez de contestar instantáneo — vale la pena variarla (ej. 3-15 segundos) en vez de un
+  valor fijo.
+- `readMessages: true` / `readStatus: true` activados — el bot marca los mensajes como leídos, lo
+  que se ve más creíble/humano.
+- Las respuestas de Claude ya varían de forma natural en tono y redacción (no son plantillas fijas
+  repetidas).
 
 ## Fixes aplicados para correr esto en local (Docker Desktop / Windows)
 
