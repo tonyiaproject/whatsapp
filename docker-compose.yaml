@@ -29,6 +29,10 @@ services:
     volumes:
       - ./Docker/nginx/manager-nginx.conf:/etc/nginx/conf.d/nginx.conf:ro
       - ./Docker/nginx/evolution-logo.png:/usr/share/nginx/html/assets/images/evolution-logo.png:ro
+      - ./Docker/nginx/index-CO3NSIFj.js:/usr/share/nginx/html/assets/index-CO3NSIFj.js:ro
+      - ./Docker/nginx/tony-logo-light.png:/usr/share/nginx/html/assets/images/tony-logo-light.png:ro
+      - ./Docker/nginx/tony-logo-dark.png:/usr/share/nginx/html/assets/images/tony-logo-dark.png:ro
+      - ./Docker/nginx/index.html:/usr/share/nginx/html/index.html:ro
     networks:
       - evolution-net
 

@@ -127,26 +127,69 @@ Mitigaciones ya aplicadas en este proyecto:
 - Las respuestas de Claude ya varían de forma natural en tono y redacción (no son plantillas fijas
   repetidas).
 
-## Branding del panel Manager (localhost:3000)
+## Branding del panel Manager (localhost:3000) — "TonyIA Manager"
 
 La imagen `evoapicloud/evolution-manager:latest` sirve archivos estáticos con nginx desde
-`/usr/share/nginx/html`. El logo que usa toda la interfaz es un único archivo referenciado por el
-bundle JS: `assets/images/evolution-logo.png` (965×363 px, PNG horizontal). Se reemplaza montando un
-archivo propio sobre esa ruta en `docker-compose.yaml`:
+`/usr/share/nginx/html`. Hay **dos logos distintos** en juego, y solo uno de ellos es el que
+realmente se ve en pantalla:
+
+- `assets/images/evolution-logo.png` (965×363 px): usado como ícono cuadrado de respaldo (32×32,
+  clase `h-8 w-8`) cuando una instancia no tiene foto de perfil — poco visible en el uso normal.
+- El **logo principal** (pantalla de login, encabezados) viene de una **URL externa fija dentro del
+  JS compilado**: `https://evolution-api.com/files/evo/evolution-logo.svg` (tema claro) /
+  `evolution-logo-white.svg` (tema oscuro). No hay ninguna variable de entorno para cambiar esto —
+  está hardcodeado en el bundle `assets/index-CO3NSIFj.js`.
+
+### Cómo se reemplazó
+
+1. Se extrajo el JS del contenedor, se reemplazaron esas dos URLs por rutas locales
+   (`/assets/images/tony-logo-light.png` y `/assets/images/tony-logo-dark.png`) con `sed`, y el
+   archivo resultante se guardó en `Docker/nginx/index-CO3NSIFj.js`.
+2. Se copiaron los logos del usuario (`logo-black.png` → tema claro, `logo-white.png` → tema
+   oscuro) a `Docker/nginx/tony-logo-light.png` / `tony-logo-dark.png`.
+3. También se reemplazó el texto del producto ("Evolution Manager" / "Evolution API" en título de
+   pestaña, encabezados y pantalla de login en 4 idiomas) por **"TonyIA Manager"**, editando el
+   mismo JS y un `Docker/nginx/index.html` extraído y parchado.
+4. Todo se monta sobre los archivos originales del contenedor vía `docker-compose.yaml`:
 
 ```yaml
 volumes:
   - ./Docker/nginx/evolution-logo.png:/usr/share/nginx/html/assets/images/evolution-logo.png:ro
+  - ./Docker/nginx/index-CO3NSIFj.js:/usr/share/nginx/html/assets/index-CO3NSIFj.js:ro
+  - ./Docker/nginx/tony-logo-light.png:/usr/share/nginx/html/assets/images/tony-logo-light.png:ro
+  - ./Docker/nginx/tony-logo-dark.png:/usr/share/nginx/html/assets/images/tony-logo-dark.png:ro
+  - ./Docker/nginx/index.html:/usr/share/nginx/html/index.html:ro
 ```
 
-El archivo en `Docker/nginx/evolution-logo.png` se generó centrando el logo del usuario (versión
-blanca, `logo-white.png`) sobre un lienzo transparente de 965×363 para respetar la proporción
-esperada sin deformarlo. Si el contraste no se ve bien contra el fondo real del panel, se puede
-regenerar con `logo-black.png` en su lugar.
+**Frágil ante actualizaciones**: si se actualiza la imagen `evoapicloud/evolution-manager` a una
+versión nueva, el nombre del archivo JS cambia (el hash `CO3NSIFj` es del build actual) y este patch
+se rompe silenciosamente — el mount fallaría o el JS parchado quedaría desactualizado. Si se
+actualiza la imagen, hay que repetir el proceso de extracción + `sed` con el nuevo archivo.
 
-El favicon del panel sigue apuntando a una URL externa de Evolution API
-(`https://evolution-api.com/files/evo/favicon.svg`, definido en `index.html` dentro del contenedor)
-— para cambiarlo también habría que montar un `index.html` propio, no se hizo todavía.
+Se dejaron sin tocar, a propósito, dos textos que sí mencionan "Evolution API": el aviso de
+copyright/licencia en el pie de página, y un enlace de "ayuda / conoce más sobre Evolution API" —
+ver la sección de licencia y marca abajo para el porqué.
+
+### Licencia y política de marca — ¿esto rompe alguna regla?
+
+El código es Apache 2.0 (`LICENSE`), así que modificarlo es libre. Pero el repo también trae un
+`TRADEMARKS.md` con la política de marca de Evolution Foundation, y es directamente relevante para
+este proyecto porque se planea comercializar:
+
+- Sección 4.1: si usas su logo/marca **sin modificarlo**, no puedes alterarlo.
+- Sección 4.2: si distribuyes/alojas públicamente una **interfaz modificada**, debes (a) quitar y
+  reemplazar toda su marca — incluyendo el nombre del producto mostrado — y (b) usar un nombre y
+  marca claramente distintos de "Evolution API".
+
+Es decir, reemplazar el logo y el nombre (lo que se hizo aquí) es exactamente lo que su propia
+política **exige** al distribuir/alojar una versión personalizada — no una violación. Por eso se
+mantuvo intacta la línea de copyright/licencia (atribución legal real, no "marca") y el enlace
+nominativo genuino a "Evolution API" en la sección de ayuda (permitido explícitamente por la
+sección 2.1: se puede referir con veracidad al proyecto del que deriva el software).
+
+Nota: esto es una lectura del documento público del proyecto, no asesoría legal formal — si el
+negocio crece en serio, vale la pena una revisión legal real, tanto de esto como de los términos de
+uso de WhatsApp/Meta mencionados arriba.
 
 ## Fixes aplicados para correr esto en local (Docker Desktop / Windows)
 
