@@ -27,6 +27,11 @@ de vuelta).
 4. **Si Tony escribe manualmente** desde su propio WhatsApp en una conversación activa del bot, este se
    pausa automáticamente — esto es un comportamiento **nativo de Evolution API** (`stopBotFromMe: true`
    en la configuración del bot), no algo que implementamos en el bridge.
+5. **Los grupos de WhatsApp están completamente excluidos**: los ajustes del bot (`ignoreJids: ["@g.us"]`,
+   ver `POST /evolutionBot/settings/:instance`) hacen que Evolution API descarte cualquier mensaje de
+   grupo antes de buscar el bot — el bridge nunca llega a recibir esos mensajes. Sin esto, el bot
+   respondería en cualquier grupo donde esté agregado el número, algo no deseado en pruebas ni en
+   producción.
 
 ## Variables de entorno (`claude-bridge/.env`)
 
