@@ -40,6 +40,7 @@ de vuelta).
 | `HANDOFF_MESSAGE` | Mensaje al detectar traspaso a humano |
 | `EVOLUTION_API_URL` | URL interna de la API dentro de la red Docker (`http://api:8080`) |
 | `EVOLUTION_API_KEY` | API key global de Evolution, usada para cerrar sesiones de bot vía `changeStatus` |
+| `MIN_REPLY_DELAY_MS` / `MAX_REPLY_DELAY_MS` | Rango (ms) de espera aleatoria antes de responder cada mensaje (por defecto 2000-8000) |
 
 ## Costos (Claude Haiku 4.5)
 
@@ -116,9 +117,11 @@ Sin embargo, el riesgo **no es cero**:
 
 Mitigaciones ya aplicadas en este proyecto:
 
-- `delayMessage` / `debounceTime` en la configuración del bot agregan una pequeña demora antes de
-  responder en vez de contestar instantáneo — vale la pena variarla (ej. 3-15 segundos) en vez de un
-  valor fijo.
+- **Delay de respuesta aleatorio** (`MIN_REPLY_DELAY_MS` / `MAX_REPLY_DELAY_MS` en
+  `claude-bridge/.env`, por defecto 2000-8000 ms): el bridge espera un tiempo random dentro de ese
+  rango antes de devolver la respuesta a Evolution, para cada mensaje — así el tiempo de respuesta
+  nunca es idéntico ni instantáneo. Se suma al `delayMessage`/`debounceTime` propios de Evolution
+  (indicador de "escribiendo...").
 - `readMessages: true` / `readStatus: true` activados — el bot marca los mensajes como leídos, lo
   que se ve más creíble/humano.
 - Las respuestas de Claude ya varían de forma natural en tono y redacción (no son plantillas fijas
