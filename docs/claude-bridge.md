@@ -127,6 +127,27 @@ Mitigaciones ya aplicadas en este proyecto:
 - Las respuestas de Claude ya varían de forma natural en tono y redacción (no son plantillas fijas
   repetidas).
 
+## Branding del panel Manager (localhost:3000)
+
+La imagen `evoapicloud/evolution-manager:latest` sirve archivos estáticos con nginx desde
+`/usr/share/nginx/html`. El logo que usa toda la interfaz es un único archivo referenciado por el
+bundle JS: `assets/images/evolution-logo.png` (965×363 px, PNG horizontal). Se reemplaza montando un
+archivo propio sobre esa ruta en `docker-compose.yaml`:
+
+```yaml
+volumes:
+  - ./Docker/nginx/evolution-logo.png:/usr/share/nginx/html/assets/images/evolution-logo.png:ro
+```
+
+El archivo en `Docker/nginx/evolution-logo.png` se generó centrando el logo del usuario (versión
+blanca, `logo-white.png`) sobre un lienzo transparente de 965×363 para respetar la proporción
+esperada sin deformarlo. Si el contraste no se ve bien contra el fondo real del panel, se puede
+regenerar con `logo-black.png` en su lugar.
+
+El favicon del panel sigue apuntando a una URL externa de Evolution API
+(`https://evolution-api.com/files/evo/favicon.svg`, definido en `index.html` dentro del contenedor)
+— para cambiarlo también habría que montar un `index.html` propio, no se hizo todavía.
+
 ## Fixes aplicados para correr esto en local (Docker Desktop / Windows)
 
 - `docker-compose.yaml`: se agregó volumen que monta `Docker/nginx/manager-nginx.conf` sobre
@@ -137,3 +158,10 @@ Mitigaciones ya aplicadas en este proyecto:
   solo aplica en despliegues con Dokploy.
 - `.env`: se corrigió `CACHE_REDIS_URI` para apuntar al nombre del servicio Docker
   (`evolution-redis`) en vez de `localhost`.
+
+### Troubleshooting: error "mkdir /run/desktop/mnt/host/...: file exists"
+
+Bug conocido de Docker Desktop en Windows: su caché interna de carpetas compartidas (VirtioFS/
+gRPC-FUSE) se puede corromper al agregar/quitar bind mounts de archivos individuales, y entonces
+cualquier contenedor con ese tipo de mount deja de arrancar (se queda en estado `Created`). Se
+soluciona reiniciando Docker Desktop (clic derecho en el ícono de la barra de tareas → Restart).

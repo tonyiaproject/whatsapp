@@ -28,6 +28,7 @@ services:
       - "3000:80"
     volumes:
       - ./Docker/nginx/manager-nginx.conf:/etc/nginx/conf.d/nginx.conf:ro
+      - ./Docker/nginx/evolution-logo.png:/usr/share/nginx/html/assets/images/evolution-logo.png:ro
     networks:
       - evolution-net
 
