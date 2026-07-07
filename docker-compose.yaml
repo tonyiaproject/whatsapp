@@ -33,6 +33,7 @@ services:
       - ./Docker/nginx/tony-logo-light.png:/usr/share/nginx/html/assets/images/tony-logo-light.png:ro
       - ./Docker/nginx/tony-logo-dark.png:/usr/share/nginx/html/assets/images/tony-logo-dark.png:ro
       - ./Docker/nginx/index.html:/usr/share/nginx/html/index.html:ro
+      - ./Docker/nginx/favicon.png:/usr/share/nginx/html/favicon.png:ro
     networks:
       - evolution-net
 

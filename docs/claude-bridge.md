@@ -150,7 +150,10 @@ realmente se ve en pantalla:
 3. También se reemplazó el texto del producto ("Evolution Manager" / "Evolution API" en título de
    pestaña, encabezados y pantalla de login en 4 idiomas) por **"TonyIA Manager"**, editando el
    mismo JS y un `Docker/nginx/index.html` extraído y parchado.
-4. Todo se monta sobre los archivos originales del contenedor vía `docker-compose.yaml`:
+4. El favicon (`<link rel="icon">` en `index.html`) también apuntaba a una URL externa de Evolution
+   API (`https://evolution-api.com/files/evo/favicon.svg`) — se generó `Docker/nginx/favicon.png`
+   (128×128, logo negro centrado sobre fondo transparente) y se cambió el `href` a `/favicon.png`.
+5. Todo se monta sobre los archivos originales del contenedor vía `docker-compose.yaml`:
 
 ```yaml
 volumes:
@@ -159,6 +162,7 @@ volumes:
   - ./Docker/nginx/tony-logo-light.png:/usr/share/nginx/html/assets/images/tony-logo-light.png:ro
   - ./Docker/nginx/tony-logo-dark.png:/usr/share/nginx/html/assets/images/tony-logo-dark.png:ro
   - ./Docker/nginx/index.html:/usr/share/nginx/html/index.html:ro
+  - ./Docker/nginx/favicon.png:/usr/share/nginx/html/favicon.png:ro
 ```
 
 **Frágil ante actualizaciones**: si se actualiza la imagen `evoapicloud/evolution-manager` a una
