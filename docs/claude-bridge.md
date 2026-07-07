@@ -132,7 +132,11 @@ Mitigaciones ya aplicadas en este proyecto:
 - Las respuestas de Claude ya varían de forma natural en tono y redacción (no son plantillas fijas
   repetidas).
 
-## Branding del panel Manager (localhost:3000) — "TonyIA Manager"
+## Branding del panel Manager (localhost:3000) — "Humania"
+
+> Nota: el panel pasó por dos nombres antes de este — primero "TonyIA Manager", ahora **"Humania"**
+> (proyecto de marca propio del usuario, tagline "la IA que automatiza tu negocio"). El mecanismo de
+> reemplazo es el mismo cada vez; solo cambian los archivos de logo y las cadenas de texto.
 
 La imagen `evoapicloud/evolution-manager:latest` sirve archivos estáticos con nginx desde
 `/usr/share/nginx/html`. Hay **dos logos distintos** en juego, y solo uno de ellos es el que
@@ -150,15 +154,20 @@ realmente se ve en pantalla:
 1. Se extrajo el JS del contenedor, se reemplazaron esas dos URLs por rutas locales
    (`/assets/images/tony-logo-light.png` y `/assets/images/tony-logo-dark.png`) con `sed`, y el
    archivo resultante se guardó en `Docker/nginx/index-CO3NSIFj.js`.
-2. Se copiaron los logos del usuario (`logo-black.png` → tema claro, `logo-white.png` → tema
-   oscuro) a `Docker/nginx/tony-logo-light.png` / `tony-logo-dark.png`.
-3. También se reemplazó el texto del producto ("Evolution Manager" / "Evolution API" en título de
-   pestaña, encabezados y pantalla de login en 4 idiomas) por **"TonyIA Manager"**, editando el
-   mismo JS y un `Docker/nginx/index.html` extraído y parchado.
-4. El favicon (`<link rel="icon">` en `index.html`) también apuntaba a una URL externa de Evolution
-   API (`https://evolution-api.com/files/evo/favicon.svg`) — se generó `Docker/nginx/favicon.png`
-   (128×128, logo negro centrado sobre fondo transparente) y se cambió el `href` a `/favicon.png`.
-5. Todo se monta sobre los archivos originales del contenedor vía `docker-compose.yaml`:
+2. Se copiaron los wordmarks de Humania (`umania negros_.png` → tema claro, `umania blanco.png` →
+   tema oscuro, ambos en `D:\CLIENTES\UMANIA\`) a `Docker/nginx/tony-logo-light.png` /
+   `tony-logo-dark.png` (se mantuvieron los nombres de archivo originales para no tocar
+   `docker-compose.yaml`).
+3. Del wordmark negro se recortó automáticamente (script Python + Pillow, por proporción del ancho
+   del contenido) solo el ícono morado de la persona integrada en "ia" — se usa para el avatar
+   cuadrado de respaldo (`evolution-logo.png`) y el favicon, donde el wordmark completo no cabía
+   legible.
+4. Se reemplazó el texto del producto ("Evolution Manager" → "TonyIA Manager" → ahora **"Humania"**)
+   en título de pestaña, encabezados y pantalla de login en 4 idiomas, y el subtítulo pasó a ser
+   **"La IA que automatiza tu negocio"** — editando el mismo JS y `Docker/nginx/index.html`.
+5. El favicon (`<link rel="icon">` en `index.html`) se generó a partir del ícono morado recortado
+   (128×128 sobre fondo transparente) y se cambió el `href` a `/favicon.png`.
+6. Todo se monta sobre los archivos originales del contenedor vía `docker-compose.yaml`:
 
 ```yaml
 volumes:
