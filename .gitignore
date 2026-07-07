@@ -3,6 +3,7 @@ Baileys
 # compiled output
 /dist
 /node_modules
+/claude-bridge/node_modules
 
 /Docker/.env
 

@@ -26,8 +26,21 @@ services:
     restart: always
     ports:
       - "3000:80"
+    volumes:
+      - ./Docker/nginx/manager-nginx.conf:/etc/nginx/conf.d/nginx.conf:ro
     networks:
       - evolution-net
+
+  claude-bridge:
+    container_name: claude_bridge
+    build: ./claude-bridge
+    restart: always
+    env_file:
+      - ./claude-bridge/.env
+    networks:
+      - evolution-net
+    expose:
+      - "3001"
 
   redis:
     container_name: evolution_redis
